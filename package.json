@@ -10,10 +10,12 @@
     "test": "jest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.33.1",
     "@react-native-community/masked-view": "^0.1.11",
     "@react-native-picker/picker": "^2.9.0",
     "@react-navigation/native": "^7.0.2",
     "@react-navigation/native-stack": "^7.0.2",
+    "dotenv": "^16.4.7",
     "firebase": "^11.0.1",
     "react": "18.3.1",
     "react-hook-form": "^7.53.1",
@@ -44,12 +46,15 @@
     "@react-native/typescript-config": "0.76.1",
     "@types/firebase": "^3.2.3",
     "@types/react": "^18.2.6",
+    "@types/react-native-dotenv": "^0.2.2",
     "@types/react-navigation": "^3.4.0",
     "@types/react-test-renderer": "^18.0.0",
     "babel-jest": "^29.6.3",
     "eslint": "^8.19.0",
     "jest": "^29.6.3",
+    "metro-react-native-babel-preset": "^0.77.0",
     "prettier": "2.8.8",
+    "react-native-dotenv": "^3.4.11",
     "react-test-renderer": "18.3.1",
     "typescript": "5.0.4"
   },
