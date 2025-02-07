@@ -132,6 +132,14 @@ const getStyles = (colorScheme: 'dark' | 'light') => ({
   text: {
     color: colorScheme === 'dark' ? 'white' : 'black',
   },
+  title: {
+    color: colorScheme === 'dark' ? 'white' : 'black',
+    fontSize: 20
+  },
+  subtitle: {
+    color: colorScheme === 'dark' ? 'white' : 'black',
+    fontStyle: 'italic'
+  },
   input: {
     height: 40,
     borderColor: 'gray',
@@ -167,6 +175,26 @@ const getStyles = (colorScheme: 'dark' | 'light') => ({
     marginBottom: 10,
   },
 });
+
+const weedLabels = (labels: string[]): string[] => {
+  // const maxLabels = 7
+  // if (labels.length <= maxLabels) {
+  return labels.map(label => reformatDate(label));
+  // }
+  // const interval = Math.floor(labels.length / 5);
+  // return labels.map((label, index) => {
+  //   if (index % interval === 0) {
+  //     return reformatDate(label);
+  //   }
+  //   return '';
+  // });
+};
+
+
+const reformatDate = (dateString: string): string => {
+  const dateParts = dateString.split('-');
+  return `${dateParts[1]}/${dateParts[2]}/${dateParts[0].substring(2)}`;
+};
 
 const retrieveMovements = async (): Promise<unknown> => {
   try {
@@ -346,9 +374,9 @@ const BotScreen = ({ navigation }) => {
       title: string;
       x_label: string;
       y_label: string;
+      x_data: string[];
       lines: {
         line_label: string;
-        x_data: string[];
         y_data: string[];
       }[];
     }[];
@@ -367,31 +395,23 @@ const BotScreen = ({ navigation }) => {
       model: "claude-3-5-sonnet-20241022",
       max_tokens: 8192,
       temperature: 0,
-      system: `Your name is JackedBot, you are a useful assistant for weight lifters. This is a JSON object representing a user's tracked weight lifting data: ${lift_data}.  Answer questions and provide insight surrounding the user's lifting data. You have access to a tool, \"line_chart_data\", that allows you to depict trends of the user's data with any amount of multi-line, line charts.`,
+      system: `Your name is JackedBot, you are a useful assistant for weight lifters. This is a JSON object representing a user's tracked weight lifting data: ${JSON.stringify(lift_data)}.  Answer questions and provide insight surrounding the user's lifting data. You have access to a tool, \"line_chart_data\", that allows you to depict trends of the user's data with any amount of multi-line, line charts. Do not hallucinate data for analysis. Only use the user's data in charts and analysis.`,
       tools: [
         {
           "name": "line_chart_data",
           "description": "Output weight lifting data to be plotted on a line chart for visual interpretation by user.",
           "input_schema": {
             "type": "object",
-            "required": [
-              "description",
-              "charts"
-            ],
             "properties": {
-              "description": {
-                "type": "string",
-                "description": "Description of collection of plots. One to two sentences max."
-              },
               "charts": {
                 "type": "array",
-                "description": "Array of individual charts to be shown to the user, containing 1 or more lines, representing trends in weight lifting data. Must have at least 1, but can have many.",
                 "items": {
                   "type": "object",
                   "required": [
                     "title",
                     "x_label",
                     "y_label",
+                    "x_data",
                     "lines"
                   ],
                   "properties": {
@@ -407,44 +427,52 @@ const BotScreen = ({ navigation }) => {
                       "type": "string",
                       "description": "y-axis label that describes what y_data represents"
                     },
+                    "x_data": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "description": "x-axis data point to be represented in a line chart. This will usually be a date in the format YYYY-MM-DD."
+                      },
+                      "description": "x-axis data to be paired with y_data of the lines on the chart. Should be a union of the x data for each line."
+                    },
                     "lines": {
                       "type": "array",
-                      "description": "Array of individual lines to be plotted on a single chart, representing trends in weight lifting data. Must have at least 1, but can have many.",
                       "items": {
                         "type": "object",
                         "required": [
                           "line_label",
-                          "x_data",
                           "y_data"
                         ],
                         "properties": {
-                          "line_label": {
-                            "type": "string",
-                            "description": "Label that clearly describes what this specific line represents within the chart. Would likely include the movement name that is being represented."
-                          },
-                          "x_data": {
-                            "type": "array",
-                            "items": {
-                              "type": "string",
-                              "description": "x-axis data point to be represented in a line chart. This will usually be a date in the format YYYY-MM-DD."
-                            },
-                            "description": "x-axis data to be paired with y_data and represented in a line chart. Must have same amount of items as y_data"
-                          },
                           "y_data": {
                             "type": "array",
                             "items": {
                               "type": "string",
                               "description": "y-axis data point to be represented in a line chart. This will usually be a weight in pounds."
                             },
-                            "description": "y-axis data to be paired with x_data and represented in a line chart. Must have same amount of items as x_data"
+                            "description": "y-axis data to be paired with the chart's common x_data and represented in a line chart. Must have same amount of items as x_data. If there is no y data for a point in the x_data, include an empty string in its place."
+                          },
+                          "line_label": {
+                            "type": "string",
+                            "description": "Label that clearly describes what this specific line represents within the chart. Would likely include the movement name that is being represented."
                           }
                         }
-                      }
+                      },
+                      "description": "Array of individual lines to be plotted on a single chart, representing trends in weight lifting data. Must have at least 1, but can have many."
                     }
                   }
-                }
+                },
+                "description": "Array of individual charts to be shown to the user, containing 1 or more lines, representing trends in weight lifting data. Must have at least 1, but can have many."
+              },
+              "description": {
+                "type": "string",
+                "description": "Description of collection of plots. One to two sentences max."
               }
-            }
+            },
+            "required": [
+              "description",
+              "charts"
+            ]
           }
         }
       ],
@@ -455,7 +483,16 @@ const BotScreen = ({ navigation }) => {
           "content": [
             {
               "type": "text",
-              "text": userPrompt
+              "text": "You are JackedBot, an AI assistant designed to help weight lifters analyze their lifting data and provide personalized insights and recommendations. Your goal is to offer valuable, actionable advice based on the user's lifting history and current goals.\n\nFirst, review the user's tracked weight lifting data provided in the following JSON object:\n\n<lift_data>\n{{lift_data}}\n</lift_data>\n\nWhen responding to user questions, follow these steps:\n\n1. Analyze the user's lifting data and question.\n2. If relevant, use the line_chart_data tool to create a visualization of the data.\n3. Interpret the data and/or visualization.\n4. Formulate a concise response that includes:\n   - Any relevant data visualization\n   - Your analysis of the user's lifting data\n   - Personalized recommendations based on the data and question\n   - A direct answer to the user's question\n\nBefore providing your final response, wrap your data interpretation process inside <data_interpretation> tags. In this section:\n\na) List out all instances of the exercise in question with dates, weights, and reps.\nb) Calculate the average weight and reps for the last 3 sessions of this exercise.\nc) Identify the trend in weight progression (increasing, decreasing, or stable).\nd) Compare the user's current performance with their personal best for this exercise.\ne) Consider the user's overall lifting schedule and recovery time between sessions.\nf) Note any injuries or limitations mentioned in the lifting data.\ng) Propose a weight range for the next session based on your analysis.\n\nYour response should follow this structure:\n\n<data_interpretation>\n[Your detailed interpretation of the user's lifting data, including all steps mentioned above]\n</data_interpretation>\n\n<visualization>\n[If applicable, the output from the line_chart_data tool]\n</visualization>\n\n<response>\n[A concise summary of your insights, recommendations, and direct answer to the user's question. Keep this section brief and to the point. If the user asks for more information, you can expand on the topic.]\n</response>\n\nRemember to always provide personalized insights and recommendations, even if you use the line_chart_data tool. Your goal is to combine data analysis with your knowledge of weight lifting to give the user valuable, actionable advice in a concise manner.\n\nNow, please respond to the following user question:\n\n<user_question>\nHow has my chest improved?\n</user_question>"
+            }
+          ]
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "<data_interpretation>"
             }
           ]
         }
@@ -493,9 +530,9 @@ const BotScreen = ({ navigation }) => {
               title: chart.title,
               x_label: chart.x_label,
               y_label: chart.y_label,
+              x_data: chart.x_data,
               lines: chart.lines.map(line => ({
                 line_label: line.line_label,
-                x_data: line.x_data,
                 y_data: line.y_data,
               }))
             }))
@@ -508,6 +545,22 @@ const BotScreen = ({ navigation }) => {
     } else {
       console.log(`Reply from bot has no content.`);
     }
+  };
+
+  const generateColor = (startColor: string, endColor: string, n: number, i: number): string => {
+    const startRGB = hexToRGB(startColor);
+    const endRGB = hexToRGB(endColor);
+    const r = startRGB.r + (endRGB.r - startRGB.r) * i / (n - 1);
+    const g = startRGB.g + (endRGB.g - startRGB.g) * i / (n - 1);
+    const b = startRGB.b + (endRGB.b - startRGB.b) * i / (n - 1);
+    return `rgb(${r}, ${g}, ${b})`;
+  };
+
+  const hexToRGB = (hex: string): { r: number; g: number; b: number } => {
+    const r = parseInt(hex.slice(-6, -4), 16);
+    const g = parseInt(hex.slice(-4, -2), 16);
+    const b = parseInt(hex.slice(-2), 16);
+    return { r, g, b };
   };
 
   React.useEffect(() => {
@@ -531,23 +584,25 @@ const BotScreen = ({ navigation }) => {
             {replies && replies.length > 0 ? (
               replies.map(reply => (
                 <View style={{ alignItems: 'center', justifyContent: 'center', padding: 16, width: '100%' }}>
-                  <Text style={[styles.text, { alignItems: 'flex-start', justifyContent: 'flex-start' }]}>Response: {reply.response}</Text>
-                  <Text style={[styles.text, { alignItems: 'flex-start', justifyContent: 'flex-start' }]}>Description: {reply.description}</Text>
+                  <Text style={[styles.text, { alignItems: 'flex-start', justifyContent: 'flex-start' }]}>{reply.response}</Text>
                   {reply.charts.map((chart) => (
                     <View key={chart.title} style={{ alignItems: 'center', justifyContent: 'center', padding: 16, width: '100%' }}>
-                      <Text style={[styles.text, { alignItems: 'center', justifyContent: 'center' }]}>{chart.title}</Text>
+                      <Text style={[styles.title, { alignItems: 'center', justifyContent: 'center' }]}>{chart.title}</Text>
+                      <Text style={[styles.subtitle, { alignItems: 'center', justifyContent: 'center' }]}>{reply.description}</Text>
                       <LineChart
                         data={{
-                          labels: chart.lines.map(line => line.x_data).flat(),
-                          datasets: chart.lines.map(line => ({
+                          labels: chart.x_data.map(reformatDate),
+                          datasets: chart.lines.map((line, index) => ({
                             data: line.y_data.map(Number),
                             label: line.line_label,
+                            color: (opacity: number = 1) => generateColor("0baeff", "ffffff", chart.lines.length, index),
                           })),
                           legend: chart.lines.map(line => line.line_label)
                         }}
                         width={Dimensions.get('window').width - 16}
                         height={300}
-                        verticalLabelRotation={315}
+                        verticalLabelRotation={45}
+                        xLabelsOffset={-5}
                         // yAxisLabel={chart.y_label}
                         // xAxisLabel={chart.x_label}
                         yAxisInterval={1}
@@ -678,10 +733,11 @@ const ChartsScreen = ({ navigation }) => {
           {charts && charts.length > 0 ? (
             charts.map(chart => (
               <View key={chart.movement} style={{ alignItems: 'center', justifyContent: 'center', padding: 16, width: '100%' }}>
-                <Text style={[styles.text, { alignItems: 'center', justifyContent: 'center' }]}>{chart.movement}</Text>
+                <Text style={[styles.title, { alignItems: 'center', justifyContent: 'center' }]}>{chart.movement}</Text>
+                <Text style={[styles.subtitle, { alignItems: 'center', justifyContent: 'center' }]}>subtitle test</Text>
                 <LineChart
                   data={{
-                    labels: chart.x,
+                    labels: weedLabels(chart.x),
                     datasets: [
                       {
                         data: chart.y,
@@ -690,7 +746,8 @@ const ChartsScreen = ({ navigation }) => {
                   }}
                   width={Dimensions.get('window').width - 16}
                   height={300}
-                  verticalLabelRotation={315}
+                  verticalLabelRotation={45}
+                  xLabelsOffset={-5}
                   yAxisInterval={1}
                   chartConfig={{
                     backgroundColor: colorScheme === 'dark' ? 'black' : 'white',
